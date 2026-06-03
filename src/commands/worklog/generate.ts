@@ -1,11 +1,7 @@
 import { Command } from "@jsr/cliffy__command";
-import { exists } from "node:fs/promises";
-import { join } from "node:path";
-import { homedir } from "node:os";
-import type { CommitEntry, DateRange, GroupedCommits, OutputFormat } from "./types.ts";
-
-const WORKLOG_DIR = join(homedir(), ".artisan", "worklog");
-const COMMITS_FILE = join(WORKLOG_DIR, "commits.jsonl");
+import { WorklogEngine } from "./core/engine.ts";
+import { parseDateRange } from "./core/collector.ts";
+import type { OutputFormat } from "./types.ts";
 
 export const generateCommand = new Command()
   .description("Generate today's work log from collected commits.")
@@ -14,19 +10,24 @@ export const generateCommand = new Command()
   .option("--until <date:string>", "End date range (YYYY-MM-DD)")
   .option("--format <format:string>", "Output format (text, md, json)", { default: "text" })
   .option("--repo <name:string>", "Filter by repository name")
+  .option("--ai", "Enable AI-powered work log generation using Claude")
+  .option("--ai-model <model:string>", "Claude model to use (default: claude-3-7-sonnet-20250219)")
+  .option("--instructions <text:string>", "Additional instructions for AI generation")
   .action(async (options) => {
     const format = parseFormat(options.format);
     const dateRange = parseDateRange(options);
     const repoFilter = options.repo;
 
-    const commits = await loadCommits(dateRange, repoFilter);
-    if (commits.length === 0) {
-      console.log("No commits found for the specified date range.");
-      return;
-    }
+    const engine = new WorklogEngine({
+      dateRange,
+      repoFilter,
+      useAi: options.ai,
+      aiModel: options.aiModel,
+      outputFormat: format,
+      customInstructions: options.instructions,
+    });
 
-    const grouped = groupByRepo(commits);
-    const output = formatWorklog(grouped, format);
+    const output = await engine.generate();
     console.log(output);
   });
 

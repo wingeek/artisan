@@ -53,7 +53,7 @@ describe("generate command functions", () => {
 
   describe("parseDate", () => {
     it("should parse valid YYYY-MM-DD dates", async () => {
-      const { parseDate } = await import("./generate.ts");
+      const { parseDate } = await import("./core/collector.ts");
 
       const result = parseDate("2024-03-15");
       expect(result.getUTCFullYear()).toBe(2024);
@@ -65,7 +65,7 @@ describe("generate command functions", () => {
     });
 
     it("should throw for invalid date format", async () => {
-      const { parseDate } = await import("./generate.ts");
+      const { parseDate } = await import("./core/collector.ts");
 
       expect(() => parseDate("2024/03/15")).toThrow("Invalid date format");
       expect(() => parseDate("03-15-2024")).toThrow("Invalid date format");
@@ -75,7 +75,7 @@ describe("generate command functions", () => {
     });
 
     it("should handle leap year dates", async () => {
-      const { parseDate } = await import("./generate.ts");
+      const { parseDate } = await import("./core/collector.ts");
 
       const leapDay = parseDate("2024-02-29");
       expect(leapDay.getUTCMonth()).toBe(1);
@@ -85,7 +85,7 @@ describe("generate command functions", () => {
 
   describe("parseDateRange", () => {
     it("should use today when no options provided", async () => {
-      const { parseDateRange } = await import("./generate.ts");
+      const { parseDateRange } = await import("./core/collector.ts");
       const now = new Date();
       const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 
@@ -95,7 +95,7 @@ describe("generate command functions", () => {
     });
 
     it("should use single date with --date option", async () => {
-      const { parseDateRange } = await import("./generate.ts");
+      const { parseDateRange } = await import("./core/collector.ts");
 
       const result = parseDateRange({ date: "2024-03-15" });
       expect(result.start.getUTCFullYear()).toBe(2024);
@@ -105,7 +105,7 @@ describe("generate command functions", () => {
     });
 
     it("should handle --since and --until options", async () => {
-      const { parseDateRange } = await import("./generate.ts");
+      const { parseDateRange } = await import("./core/collector.ts");
 
       const result = parseDateRange({ since: "2024-03-01", until: "2024-03-31" });
       expect(result.start.getUTCFullYear()).toBe(2024);
@@ -117,7 +117,7 @@ describe("generate command functions", () => {
     });
 
     it("should prioritize --date over --since/--until", async () => {
-      const { parseDateRange } = await import("./generate.ts");
+      const { parseDateRange } = await import("./core/collector.ts");
 
       const result = parseDateRange({ date: "2024-03-15", since: "2024-03-01", until: "2024-03-31" });
       expect(result.start.getUTCDate()).toBe(15);
@@ -154,7 +154,7 @@ describe("generate command functions", () => {
 
   describe("loadCommits", () => {
     it("should return empty array when file does not exist", async () => {
-      const { loadCommits } = await import("./generate.ts");
+      const { loadCommits } = await import("./core/collector.ts");
 
       const dateRange = { start: new Date(), end: new Date() };
       const result = await loadCommits(dateRange);
@@ -162,7 +162,7 @@ describe("generate command functions", () => {
     });
 
     it("should load and parse valid commits", async () => {
-      const { loadCommits } = await import("./generate.ts");
+      const { loadCommits } = await import("./core/collector.ts");
 
       const commits = [
         createCommit("myrepo", "First commit", "2024-03-15T10:00:00Z"),
@@ -180,7 +180,7 @@ describe("generate command functions", () => {
     });
 
     it("should filter by date range", async () => {
-      const { loadCommits } = await import("./generate.ts");
+      const { loadCommits } = await import("./core/collector.ts");
 
       const commits = [
         createCommit("myrepo", "Before", "2024-03-14T10:00:00Z"),
@@ -198,7 +198,7 @@ describe("generate command functions", () => {
     });
 
     it("should filter by repository name", async () => {
-      const { loadCommits } = await import("./generate.ts");
+      const { loadCommits } = await import("./core/collector.ts");
 
       const commits = [
         createCommit("repo-a", "Commit A", "2024-03-15T10:00:00Z"),
@@ -215,7 +215,7 @@ describe("generate command functions", () => {
     });
 
     it("should skip malformed JSON lines with warning", async () => {
-      const { loadCommits } = await import("./generate.ts");
+      const { loadCommits } = await import("./core/collector.ts");
 
       const valid = createCommit("myrepo", "Valid", "2024-03-15T10:00:00Z");
       const lines = [
@@ -242,7 +242,7 @@ describe("generate command functions", () => {
     });
 
     it("should skip commits with invalid timestamps", async () => {
-      const { loadCommits } = await import("./generate.ts");
+      const { loadCommits } = await import("./core/collector.ts");
 
       const lines = [
         JSON.stringify(createCommit("myrepo", "Valid", "2024-03-15T10:00:00Z")),
@@ -273,7 +273,7 @@ describe("generate command functions", () => {
     });
 
     it("should sort commits by timestamp", async () => {
-      const { loadCommits } = await import("./generate.ts");
+      const { loadCommits } = await import("./core/collector.ts");
 
       const commits = [
         createCommit("myrepo", "Third", "2024-03-15T15:00:00Z"),
@@ -295,7 +295,7 @@ describe("generate command functions", () => {
 
   describe("groupByRepo", () => {
     it("should group commits by repository", async () => {
-      const { groupByRepo } = await import("./generate.ts");
+      const { groupByRepo } = await import("./core/collector.ts");
 
       const commits: CommitEntry[] = [
         createCommit("repo-a", "Commit A1", "2024-03-15T10:00:00Z"),
@@ -313,7 +313,7 @@ describe("generate command functions", () => {
     });
 
     it("should handle submodules with nested paths", async () => {
-      const { groupByRepo } = await import("./generate.ts");
+      const { groupByRepo } = await import("./core/collector.ts");
 
       const commits: CommitEntry[] = [
         createCommit("myrepo", "Main commit", "2024-03-15T10:00:00Z"),
@@ -336,7 +336,7 @@ describe("generate command functions", () => {
     });
 
     it("should sort results by repo name", async () => {
-      const { groupByRepo } = await import("./generate.ts");
+      const { groupByRepo } = await import("./core/collector.ts");
 
       const commits: CommitEntry[] = [
         createCommit("zebra", "Z", "2024-03-15T10:00:00Z"),
@@ -353,7 +353,7 @@ describe("generate command functions", () => {
 
   describe("formatWorklog", () => {
     it("should format as text by default", async () => {
-      const { formatWorklog } = await import("./generate.ts");
+      const { formatWorklog } = await import("./outputs/local.ts");
 
       const commit1 = createCommit("myrepo", "Add feature", "2024-03-15T10:00:00Z");
       const commit2 = createCommit("myrepo", "Fix bug", "2024-03-15T11:00:00Z");
@@ -374,7 +374,7 @@ describe("generate command functions", () => {
     });
 
     it("should format as markdown", async () => {
-      const { formatWorklog } = await import("./generate.ts");
+      const { formatWorklog } = await import("./outputs/local.ts");
 
       const commit1 = createCommit("myrepo", "Add feature", "2024-03-15T10:00:00Z");
 
@@ -396,7 +396,7 @@ describe("generate command functions", () => {
     });
 
     it("should format as JSON", async () => {
-      const { formatWorklog } = await import("./generate.ts");
+      const { formatWorklog } = await import("./outputs/local.ts");
 
       const grouped: GroupedCommits[] = [
         {
@@ -415,7 +415,7 @@ describe("generate command functions", () => {
     });
 
     it("should handle submodule indentation in text format", async () => {
-      const { formatWorklog } = await import("./generate.ts");
+      const { formatWorklog } = await import("./outputs/local.ts");
 
       const commit1 = createCommit("myrepo", "Sub commit", "2024-03-15T10:00:00Z", "packages/sub");
 
@@ -434,7 +434,7 @@ describe("generate command functions", () => {
     });
 
     it("should handle pluralization correctly", async () => {
-      const { formatWorklog } = await import("./generate.ts");
+      const { formatWorklog } = await import("./outputs/local.ts");
 
       const single: GroupedCommits[] = [
         {
