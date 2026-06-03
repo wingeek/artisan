@@ -8,8 +8,8 @@ const args = Bun.argv.slice(2);
 // 无参数 → 显示欢迎 TUI
 if (args.length === 0) {
   render(() => (
-    <box alignItems="center" justifyContent="center" flexGrow={1}>
-      <box justifyContent="center" alignItems="flex-end">
+    <box alignItems="flex-start" justifyContent="flex-start" flexGrow={1}>
+      <box justifyContent="flex-start" alignItems="flex-start">
         <ascii_font font="tiny" text="Artisan" />
         <text attributes={TextAttributes.DIM}>What will you create?</text>
       </box>
