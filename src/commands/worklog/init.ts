@@ -53,7 +53,7 @@ async function installHook(repoRoot: string): Promise<void> {
   console.log(`✓ hook installed: ${hookPath}`);
 }
 
-async function resolveGitDir(repoRoot: string): Promise<string | null> {
+export async function resolveGitDir(repoRoot: string): Promise<string | null> {
   try {
     const proc = Bun.spawn(["git", "rev-parse", "--git-dir"], {
       cwd: repoRoot,
@@ -73,7 +73,7 @@ async function resolveGitDir(repoRoot: string): Promise<string | null> {
   }
 }
 
-async function listSubmodules(repoRoot: string): Promise<string[]> {
+export async function listSubmodules(repoRoot: string): Promise<string[]> {
   try {
     const proc = Bun.spawn(
       ["git", "submodule", "foreach", "--quiet", "echo $sm_path"],
@@ -88,7 +88,7 @@ async function listSubmodules(repoRoot: string): Promise<string[]> {
   }
 }
 
-async function ensureWorklogDir(): Promise<void> {
+export async function ensureWorklogDir(): Promise<void> {
   await mkdir(WORKLOG_DIR, { recursive: true });
   console.log(`✓ worklog dir: ${WORKLOG_DIR}`);
 }
