@@ -140,7 +140,7 @@ function formatText(grouped: GroupedCommits[]): string {
     lines.push(`${name} (${commits.length} commit${commits.length === 1 ? "" : "s"})`);
 
     for (const commit of commits) {
-      const indent = submodule ? "  " : "";
+      const indent = submodule ? "    " : "";
       lines.push(`${indent}• ${commit.hash.slice(0, 7)} ${commit.message}`);
     }
     lines.push("");
