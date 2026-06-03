@@ -14,6 +14,7 @@
     "typescript": "^5"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.100.1",
     "@babel/core": "^7.29.0",
     "@babel/preset-typescript": "^7.28.5",
     "@cliffy/command": "npm:@jsr/cliffy__command",
