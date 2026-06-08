@@ -33,7 +33,7 @@ export class WechatAdapter implements ChannelAdapter {
       body: adapted,
       format: "markdown",
       clipboard: true,
-      openUrl: "https://mp.weixin.qq.com/",
+      openUrl: "https://editor.mdnice.com/",
     };
   }
 

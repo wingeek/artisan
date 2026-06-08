@@ -23,7 +23,7 @@ export class JuejinAdapter implements ChannelAdapter {
       body: adapted,
       format: "markdown",
       clipboard: true,
-      openUrl: "https://juejin.cn/editor/draft",
+      openUrl: "https://juejin.cn/editor/drafts/new?v=2",
     };
   }
 
