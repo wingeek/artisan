@@ -81,6 +81,8 @@ function renderMarkdownAsHtml(md: string, title: string, channel: string): strin
     .replace(/^###\s+(.+)/gm, "<h3>$1</h3>")
     .replace(/^##\s+(.+)/gm, "<h2>$1</h2>")
     .replace(/^#\s+(.+)/gm, "<h1>$1</h1>")
+    // Tables
+    .replace(/((?:^\|.+\|$\n?)+)/gm, renderTable)
     // Bold & italic
     .replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>")
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
@@ -142,7 +144,10 @@ function renderMarkdownAsHtml(md: string, title: string, channel: string): strin
     .toolbar button.primary { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
     .toolbar button.primary:hover { background: #333; }
     .toolbar button.copied { background: #16a34a; color: #fff; border-color: #16a34a; }
-    .content { padding-bottom: 4rem; }
+    table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+    th, td { border: 1px solid #ddd; padding: 0.5em 0.75em; text-align: left; }
+    th { background: #f6f8fa; font-weight: 600; }
+    tr:nth-child(even) { background: #fafafa; }
   </style>
 </head>
 <body>
@@ -186,4 +191,31 @@ function renderMarkdownAsHtml(md: string, title: string, channel: string): strin
   </script>
 </body>
 </html>`;
+}
+
+function renderTable(match: string): string {
+  const lines = match.trim().split(/\r?\n/).filter((l) => l.trim());
+  if (lines.length < 2) return match;
+
+  const headerCells = parseRow(lines[0]);
+  if (!headerCells) return match;
+
+  // Skip separator row (|---|---|)
+  let dataStart = 1;
+  if (/^\|[\s\-:|]+\|$/.test(lines[1].trim())) {
+    dataStart = 2;
+  }
+
+  const rows = lines.slice(dataStart).map(parseRow).filter(Boolean) as string[][];
+
+  const thead = `<tr>${headerCells.map((c) => `<th>${c}</th>`).join("")}</tr>`;
+  const tbody = rows.map((row) => `<tr>${row.map((c) => `<td>${c}</td>`).join("")}</tr>`).join("");
+
+  return `<table><thead>${thead}</thead><tbody>${tbody}</tbody></table>`;
+}
+
+function parseRow(line: string): string[] | null {
+  const trimmed = line.trim();
+  if (!trimmed.startsWith("|") || !trimmed.endsWith("|")) return null;
+  return trimmed.slice(1, -1).split("|").map((c) => c.trim());
 }

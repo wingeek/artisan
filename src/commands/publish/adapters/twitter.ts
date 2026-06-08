@@ -11,25 +11,26 @@ export class TwitterAdapter implements ChannelAdapter {
     // Strip frontmatter
     let text = content.replace(/^---[\s\S]*?---\n*/, "");
 
-    // Strip markdown headers (use title as first tweet)
-    text = text.replace(/^#{1,6}\s+.*/gm, "").trim();
+    // Extract first meaningful paragraph as summary
+    const summary = extractSummary(text, TWEET_MAX * 2);
 
-    // Remove empty lines collapse
-    text = text.replace(/\n{3,}/g, "\n\n").trim();
+    // Build tags
+    const tagStr = meta.tags.length ? `\n\n${meta.tags.map((t) => `#${t}`).join(" ")}` : "";
 
-    // Build thread
-    const title = `${meta.title}`;
-    const tagStr = meta.tags.length ? ` ${meta.tags.map((t) => `#${t}`).join(" ")}` : "";
-    const header = `${title}${tagStr}`;
+    // Split summary into tweets if needed
+    const chunks = splitIntoTweets(summary, TWEET_MAX - tagStr.length);
 
-    // Split remaining content into sentences/paragraphs, then pack into tweets
-    const chunks = splitIntoTweets(text, TWEET_MAX);
-    const tweets = [header, ...chunks];
+    const tweets = chunks.map((chunk, i) =>
+      chunks.length > 1 ? `${i + 1}/${chunks.length} ${chunk}` : chunk
+    );
+
+    // Append tags to last tweet
+    if (tweets.length > 0 && tagStr) {
+      tweets[tweets.length - 1] += tagStr;
+    }
 
     // Format as thread
-    const thread = tweets
-      .map((tweet, i) => `${tweets.length > 1 ? `${i + 1}/${tweets.length} ` : ""}${tweet}`)
-      .join("\n\n---\n\n");
+    const thread = tweets.join("\n\n---\n\n");
 
     return {
       body: thread,
@@ -54,6 +55,55 @@ export class TwitterAdapter implements ChannelAdapter {
   }
 }
 
+/** Extract a concise summary: first 2-3 paragraphs, skip headers and images */
+function extractSummary(text: string, maxLen: number): string {
+  const lines = text.split(/\r?\n/);
+
+  // Collect meaningful paragraphs (skip headers, images, source lines, author lines)
+  const paragraphs: string[] = [];
+  let current = "";
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    // Skip headers, images, hr, source lines, author lines
+    if (
+      /^#{1,6}\s/.test(trimmed) ||
+      /^!\[/.test(trimmed) ||
+      /^---$/.test(trimmed) ||
+      /^source:/i.test(trimmed) ||
+      /^作者[｜|]/.test(trimmed) ||
+      /^\d+\s/.test(trimmed)  // numbered section headers like "1 Entire 是谁？"
+    ) {
+      if (current.trim()) {
+        paragraphs.push(current.trim());
+        current = "";
+      }
+      continue;
+    }
+
+    if (trimmed === "") {
+      if (current.trim()) {
+        paragraphs.push(current.trim());
+        current = "";
+      }
+      continue;
+    }
+
+    current = current ? `${current} ${trimmed}` : trimmed;
+  }
+  if (current.trim()) paragraphs.push(current.trim());
+
+  // Take paragraphs until we approach maxLen
+  let summary = "";
+  for (const para of paragraphs) {
+    if (summary.length + para.length + 2 > maxLen && summary.length > 0) break;
+    summary = summary ? `${summary}\n\n${para}` : para;
+  }
+
+  return summary || text.slice(0, maxLen);
+}
+
 /** Split text into tweet-sized chunks, respecting paragraph boundaries */
 function splitIntoTweets(text: string, maxLen: number): string[] {
   const paragraphs = text.split(/\n\n+/).filter((p) => p.trim());
@@ -68,7 +118,6 @@ function splitIntoTweets(text: string, maxLen: number): string[] {
       current = current ? `${current}\n\n${trimmed}` : trimmed;
     } else {
       if (current) tweets.push(current);
-      // If single paragraph exceeds limit, split by sentences
       if (trimmed.length > maxLen) {
         const parts = splitBySentences(trimmed, maxLen);
         tweets.push(...parts.slice(0, -1));

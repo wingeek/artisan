@@ -13,6 +13,8 @@ export const generateCommand = new Command()
   .option("--ai", "Enable AI-powered work log generation using Claude")
   .option("--ai-model <model:string>", "Claude model to use (default: claude-3-7-sonnet-20250219)")
   .option("--instructions <text:string>", "Additional instructions for AI generation")
+  .option("--publish", "Import generated worklog into publish store")
+  .option("--tags <tags:string>", "Tags for publish import (comma-separated, use with --publish)")
   .action(async (options) => {
     const format = parseFormat(options.format);
     const dateRange = parseDateRange(options);
@@ -28,8 +30,39 @@ export const generateCommand = new Command()
     });
 
     const output = await engine.generate();
-    console.log(output);
+
+    if (options.publish) {
+      await importToPublish(output, dateRange, options.tags);
+    } else {
+      console.log(output);
+    }
   });
+
+async function importToPublish(output: string, dateRange: { start: Date; end: Date }, tagsStr?: string): Promise<void> {
+  const { PublishStore } = await import("../publish/core/store.ts");
+  const { getDbPath } = await import("../publish/utils.ts");
+
+  const dateStr = dateRange.start.toISOString().slice(0, 10);
+  const title = `Work Log ${dateStr}`;
+  const tags = tagsStr ? tagsStr.split(",").map((t: string) => t.trim()) : ["worklog"];
+
+  const store = new PublishStore(getDbPath());
+  try {
+    const doc = store.insertDocument({
+      id: crypto.randomUUID(),
+      title,
+      content: output,
+      source: "worklog_generate",
+      tags: JSON.stringify(tags),
+    });
+    console.log(`✓ worklog published: ${doc.id}`);
+    console.log(`  title: ${doc.title}`);
+    console.log(`  tags: ${tags.join(", ")}`);
+    console.log(`\nNext: artisan publish adapt ${doc.id.slice(0, 8)} --channel <channel>`);
+  } finally {
+    store.close();
+  }
+}
 
 export function parseFormat(format: string): OutputFormat {
   if (format === "json" || format === "md" || format === "text") {
