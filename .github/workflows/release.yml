@@ -29,10 +29,15 @@ jobs:
       - run: bun run build
       - run: bun run build:bin
 
+      # build.ts 输出 release/artisan(.exe)，rename 成 matrix 名字避免跨平台合并时互相覆盖
+      - name: Rename binary to matrix artifact name
+        shell: bash
+        run: mv release/artisan* "release/${{ matrix.artifact }}"
+
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
-          path: release/artisan*
+          path: release/${{ matrix.artifact }}
 
   release:
     needs: build
