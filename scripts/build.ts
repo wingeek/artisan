@@ -32,9 +32,15 @@ console.log(`✓ Bundled ${bundle.outputs.length} file(s)`);
 
 // Step 2: Compile to binary if requested
 if (compile) {
+  mkdirSync("release", { recursive: true });
+  const isWin = process.platform === "win32";
+  const name = isWin ? "artisan.exe" : "artisan";
+  const target = join("release", name);
+
   const bin = await Bun.build({
     entrypoints: [bundle.outputs[0].path],
     compile: true,
+    outfile: target,
   });
 
   if (!bin.success) {
@@ -45,12 +51,7 @@ if (compile) {
     process.exit(1);
   }
 
-  mkdirSync("release", { recursive: true });
   const compiled = bin.outputs[0].path;
-  const isWin = process.platform === "win32";
-  const name = isWin ? "artisan.exe" : "artisan";
-  const target = join("release", name);
-  renameSync(compiled, target);
   const size = (bin.outputs[0].size / 1024 / 1024).toFixed(1);
   console.log(`✓ Compiled: release/${name} (${size} MB)`);
 }
