@@ -14,8 +14,10 @@ jobs:
             artifact: artisan-windows-x64.exe
           - os: macos-latest
             artifact: artisan-macos-arm64
-          - os: macos-13
-            artifact: artisan-macos-x64
+          # Intel macOS (macos-13) 暂时跳过：runner 配额紧张长期 pending
+          # Intel Mac 用户可改用 npx @wingeek/artisan 或 bunx @wingeek/artisan
+          # - os: macos-13
+          #   artifact: artisan-macos-x64
           - os: ubuntu-latest
             artifact: artisan-linux-x64
 
