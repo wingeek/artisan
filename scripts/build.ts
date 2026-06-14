@@ -1,5 +1,5 @@
 import { createSolidTransformPlugin } from "@opentui/solid/bun-plugin";
-import { renameSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, renameSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 
 const compile = process.argv.includes("--compile");
@@ -31,17 +31,21 @@ if (!content.startsWith("#!/usr/bin/env bun")) {
 console.log(`✓ Bundled ${bundle.outputs.length} file(s)`);
 
 // Step 2: Compile to binary if requested
+// Note: Bun.compile API ignores `outfile` (verified Bun 1.3.14).
+// Default outfile = dirname of entrypoint. If entrypoint lives inside a dir
+// (e.g. dist/index.js → outfile "dist"), it collides with the existing dir.
+// Workaround: copy entrypoint to a flat temp file at repo root so inferred
+// outfile = "_artisan_bin" (file, not dir), then rename to release/<name>.
 if (compile) {
-  mkdirSync("release", { recursive: true });
-  const isWin = process.platform === "win32";
-  const name = isWin ? "artisan.exe" : "artisan";
-  const target = join("release", name);
+  const tmpEntry = "_artisan_bin.js";
+  copyFileSync(indexPath, tmpEntry);
 
   const bin = await Bun.build({
-    entrypoints: [bundle.outputs[0].path],
+    entrypoints: [tmpEntry],
     compile: true,
-    outfile: target,
   });
+
+  unlinkSync(tmpEntry);
 
   if (!bin.success) {
     console.error("Compile failed:");
@@ -51,7 +55,11 @@ if (compile) {
     process.exit(1);
   }
 
-  const compiled = bin.outputs[0].path;
+  mkdirSync("release", { recursive: true });
+  const isWin = process.platform === "win32";
+  const name = isWin ? "artisan.exe" : "artisan";
+  const compiled = bin.outputs[0].path; // "_artisan_bin" or "_artisan_bin.exe"
+  renameSync(compiled, join("release", name));
   const size = (bin.outputs[0].size / 1024 / 1024).toFixed(1);
   console.log(`✓ Compiled: release/${name} (${size} MB)`);
 }
