@@ -1,5 +1,5 @@
 import { createSolidTransformPlugin } from "@opentui/solid/bun-plugin";
-import { renameSync, mkdirSync } from "node:fs";
+import { renameSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const compile = process.argv.includes("--compile");
@@ -18,6 +18,14 @@ if (!bundle.success) {
     console.error(log);
   }
   process.exit(1);
+}
+
+// Add shebang to dist/index.js for bunx/npx
+const indexPath = bundle.outputs[0].path;
+let content = readFileSync(indexPath, "utf-8");
+if (!content.startsWith("#!/usr/bin/env bun")) {
+  content = "#!/usr/bin/env bun\n" + content;
+  writeFileSync(indexPath, content);
 }
 
 console.log(`✓ Bundled ${bundle.outputs.length} file(s)`);

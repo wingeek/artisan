@@ -11,10 +11,10 @@
   "module": "src/index.tsx",
   "type": "module",
   "bin": {
-    "artisan": "src/index.tsx"
+    "artisan": "dist/index.js"
   },
   "files": [
-    "src",
+    "dist",
     "README.md",
     "LICENSE"
   ],
@@ -22,6 +22,7 @@
     "dev": "bun run --watch src/index.tsx",
     "build": "bun run scripts/build.ts",
     "build:bin": "bun run scripts/build.ts -- --compile",
+    "prepublishOnly": "bun run build",
     "test": "bun test"
   },
   "devDependencies": {
