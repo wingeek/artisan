@@ -1,6 +1,6 @@
 {
   "name": "@wingeek/artisan",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A CLI for builders — 结构化工作日志 + 多平台内容发布，本地优先",
   "keywords": ["cli", "publish", "worklog", "content", "markdown", "juejin", "wechat", "twitter"],
   "license": "MIT",
