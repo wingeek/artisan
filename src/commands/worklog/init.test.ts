@@ -4,13 +4,18 @@ import { join } from "node:path";
 // Simple unit tests for exported utilities
 // Note: Full integration tests would require temp directories and git repos
 
+// node:path.join returns platform-native separators (\\ on Windows, / on Unix).
+// Tests use Unix-style literals for readability; convert to native before asserting.
+const nativePath = (p: string): string =>
+  process.platform === "win32" ? p.replace(/\//g, "\\") : p;
+
 describe("init module utilities", () => {
   describe("path resolution", () => {
     it("should resolve relative git paths correctly", () => {
       const repoRoot = "/test/repo";
       const relativeGit = ".git";
       const expected = join(repoRoot, relativeGit);
-      expect(expected).toBe("/test/repo/.git");
+      expect(expected).toBe(nativePath("/test/repo/.git"));
     });
 
     it("should keep absolute paths as-is", () => {
@@ -22,7 +27,7 @@ describe("init module utilities", () => {
       const parentRoot = "/main/repo";
       const submodulePath = "packages/ui";
       const expected = join(parentRoot, submodulePath);
-      expect(expected).toBe("/main/repo/packages/ui");
+      expect(expected).toBe(nativePath("/main/repo/packages/ui"));
     });
   });
 
@@ -62,7 +67,7 @@ describe("init module utilities", () => {
     it("should construct worklog path correctly", () => {
       const homedir = "/home/user";
       const worklogPath = join(homedir, ".artisan", "worklog");
-      expect(worklogPath).toBe("/home/user/.artisan/worklog");
+      expect(worklogPath).toBe(nativePath("/home/user/.artisan/worklog"));
     });
   });
 
@@ -70,7 +75,7 @@ describe("init module utilities", () => {
     it("should construct hook path correctly", () => {
       const gitDir = "/repo/.git";
       const hookPath = join(gitDir, "hooks", "post-commit");
-      expect(hookPath).toBe("/repo/.git/hooks/post-commit");
+      expect(hookPath).toBe(nativePath("/repo/.git/hooks/post-commit"));
     });
   });
 });
