@@ -22,11 +22,17 @@ export class ClaudeAdapter {
   constructor(options: ClaudeAdapterOptions = {}) {
     const apiKey = options.apiKey ?? process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
-      throw new Error("ANTHROPIC_API_KEY environment variable is required");
+      throw new Error(
+        "ANTHROPIC_API_KEY is required for AI worklog generation.\n" +
+          "Set it via: export ANTHROPIC_API_KEY=your-api-key\n" +
+          "To use a Claude-compatible endpoint (e.g. GLM, DeepSeek), also set:\n" +
+          "  export ANTHROPIC_BASE_URL=https://your-compat-endpoint\n" +
+          "  export ANTHROPIC_MODEL=your-model-name",
+      );
     }
 
     this.client = new Anthropic({ apiKey });
-    this.model = options.model ?? "claude-3-7-sonnet-20250219";
+    this.model = options.model ?? process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-6";
     this.maxTokens = options.maxTokens ?? 4096;
   }
 
