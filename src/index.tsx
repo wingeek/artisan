@@ -6,6 +6,7 @@ import { render } from "@opentui/solid";
 import { Command } from "@jsr/cliffy__command";
 import { worklogCommand } from "./commands/worklog/index.ts";
 import { publishCommand } from "./commands/publish/index.ts";
+import { authCommand } from "./commands/auth/index.ts";
 
 const args = Bun.argv.slice(2);
 
@@ -27,5 +28,6 @@ if (args.length === 0) {
     .version("0.0.1")
     .command("worklog", worklogCommand)
     .command("publish", publishCommand)
+    .command("auth", authCommand)
     .parse(args);
 }
