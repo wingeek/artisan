@@ -7,6 +7,7 @@ import { Command } from "@jsr/cliffy__command";
 import { worklogCommand } from "./commands/worklog/index.ts";
 import { publishCommand } from "./commands/publish/index.ts";
 import { authCommand } from "./commands/auth/index.ts";
+import pkg from "../package.json" with { type: "json" };
 
 const args = Bun.argv.slice(2);
 
@@ -25,7 +26,7 @@ if (args.length === 0) {
   await new Command()
     .name("artisan")
     .description("@wingeek/artisan — a CLI for builders")
-    .version("0.0.1")
+    .version(pkg.version)
     .command("worklog", worklogCommand)
     .command("publish", publishCommand)
     .command("auth", authCommand)

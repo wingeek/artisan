@@ -166,8 +166,6 @@ artisan auth status
 
 ## Demo
 
-<!-- TODO: 录制 demo gif，覆盖 init → status → generate --ai → publish 典型流程 -->
-
 ![artisan demo](./docs/demo.gif)
 
 ## 典型工作流

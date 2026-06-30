@@ -166,8 +166,6 @@ artisan auth status
 
 ## Demo
 
-<!-- TODO: record a demo gif covering init → status → generate --ai → publish -->
-
 ![artisan demo](./docs/demo.gif)
 
 ## Typical workflows
