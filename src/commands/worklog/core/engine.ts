@@ -1,4 +1,4 @@
-import type { DateRange } from "../types.ts";
+import type { CommitEntry, DateRange, GroupedCommits, OutputFormat } from "../types.ts";
 import { loadCommits, groupByRepo } from "./collector.ts";
 import { ClaudeAdapter, type GenerateWorklogOptions } from "../adapters/claude.ts";
 import { formatWorklog } from "../outputs/local.ts";
@@ -9,7 +9,16 @@ export interface EngineOptions {
   useAi?: boolean;
   aiApiKey?: string;
   aiModel?: string;
-  outputFormat: "text" | "md" | "json";
+  outputFormat: OutputFormat;
+  customInstructions?: string;
+}
+
+export interface ProcessCommitsOptions {
+  commits: CommitEntry[];
+  useAi?: boolean;
+  aiApiKey?: string;
+  aiModel?: string;
+  outputFormat: OutputFormat;
   customInstructions?: string;
 }
 
@@ -46,6 +55,51 @@ export class WorklogEngine {
     }
 
     return formatWorklog(grouped, this.outputFormat);
+  }
+
+  static async processCommits(opts: ProcessCommitsOptions): Promise<string> {
+    const { commits, useAi, aiApiKey, aiModel, outputFormat, customInstructions } = opts;
+
+    if (commits.length === 0) {
+      return "No commits found for the specified date range.";
+    }
+
+    const grouped = groupByRepo(commits);
+
+    if (useAi) {
+      return WorklogEngine.generateWithAiStatic(grouped, {
+        apiKey: aiApiKey,
+        model: aiModel,
+        outputFormat,
+        customInstructions,
+      });
+    }
+
+    return formatWorklog(grouped, outputFormat);
+  }
+
+  private static async generateWithAiStatic(
+    grouped: GroupedCommits[],
+    options: { apiKey?: string; model?: string; outputFormat: OutputFormat; customInstructions?: string }
+  ): Promise<string> {
+    try {
+      const adapter = new ClaudeAdapter({
+        apiKey: options.apiKey,
+        model: options.model,
+      });
+
+      const generateOptions: GenerateWorklogOptions = {
+        commits: grouped,
+        customInstructions: options.customInstructions,
+      };
+
+      return await adapter.generateWorklog(generateOptions);
+    } catch (error) {
+      if (error instanceof Error) {
+        console.warn(`AI generation failed: ${error.message}. Falling back to standard formatting.`);
+      }
+      return formatWorklog(grouped, options.outputFormat);
+    }
   }
 
   private async generateWithAi(grouped: ReturnType<typeof groupByRepo>): Promise<string> {

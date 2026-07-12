@@ -65,6 +65,24 @@ artisan worklog generate --ai --publish --tags "weekly,dev"
 
 **数据存储：** `~/.artisan/worklog/commits.jsonl`
 
+#### scan —— 无需 hook,直接扫描仓库
+
+`scan` 直接读取任意本地仓库的 git log 与 diff,适合团队里没人装 hook 的项目:
+别人的仓库、历史 checkout、还没开始用 artisan 的同事,都能就地生成工作总结。
+
+```bash
+cd ~/code/someone-else-repo
+artisan worklog scan                              # 今天的提交,纯文本
+artisan worklog scan --since 2026-07-01 --format md
+artisan worklog scan --with-submodules            # 同时遍历所有 submodule
+artisan worklog scan --no-diff                    # 最快:只取 commit message
+artisan worklog scan --author Alice               # 只看某位提交者的工作
+artisan worklog scan --ai --instructions "聚焦性能与稳定性改进"
+```
+
+单条 commit 的 diff 上限 8 KB(超出会降级为文件级 `+/-` 统计),
+整体累加上限 64 KB,确保 AI prompt 不会爆上下文。
+
 ### auth — 检查 AI 配置（BYOK）
 
 ```bash

@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import type { GroupedCommits } from "../types.ts";
+import type { CommitEntry, GroupedCommits } from "../types.ts";
 import { getDefaultTemplate } from "../templates/default.ts";
 
 export interface ClaudeAdapterOptions {
@@ -72,17 +72,43 @@ export class ClaudeAdapter {
   }
 
   private buildUserContent(commits: GroupedCommits[]): string {
-    const lines: string[] = ["Here are the commits to summarize:\n"];
+    return buildUserContentWithDiff(commits);
+  }
+}
 
-    for (const { repo, submodule, commits: repoCommits } of commits) {
-      const name = submodule ? `${repo}/${submodule}` : repo;
-      lines.push(`## ${name}`);
-      for (const commit of repoCommits) {
-        lines.push(`- [${commit.hash.slice(0, 7)}] ${commit.message}`);
+/**
+ * Render grouped commits into the user message sent to the LLM.
+ * Pure function — exported for unit testing.
+ */
+export function buildUserContentWithDiff(commits: GroupedCommits[]): string {
+  const lines: string[] = ["Here are the commits to summarize:\n"];
+
+  for (const { repo, submodule, commits: repoCommits } of commits) {
+    const name = submodule ? `${repo}/${submodule}` : repo;
+    lines.push(`## ${name}`);
+    for (const commit of repoCommits) {
+      const authorSuffix = commit.author ? ` (by ${commit.author})` : "";
+      lines.push(`### [${commit.hash.slice(0, 7)}] ${commit.message}${authorSuffix}`);
+
+      if (commit.files && commit.files.length > 0) {
+        for (const file of commit.files) {
+          const added = file.added > 0 ? ` +${file.added}` : "";
+          const deleted = file.deleted > 0 ? ` -${file.deleted}` : "";
+          lines.push(`- ${file.path}${added}${deleted}`);
+        }
       }
+
+      if (commit.diff) {
+        lines.push("```diff");
+        lines.push(commit.diff);
+        lines.push("```");
+      } else if (commit.diffTruncated) {
+        lines.push("(diff truncated, see file stats above)");
+      }
+
       lines.push("");
     }
-
-    return lines.join("\n");
   }
+
+  return lines.join("\n");
 }
