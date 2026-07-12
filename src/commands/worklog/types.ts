@@ -4,6 +4,15 @@ export interface CommitEntry {
   submodule: string;
   message: string;
   hash: string;
+  diff?: string;
+  files?: FileStat[];
+  diffTruncated?: boolean;
+}
+
+export interface FileStat {
+  path: string;
+  added: number;
+  deleted: number;
 }
 
 export interface Repo {
