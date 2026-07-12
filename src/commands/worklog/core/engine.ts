@@ -70,6 +70,7 @@ export class WorklogEngine {
       return WorklogEngine.generateWithAiStatic(grouped, {
         apiKey: aiApiKey,
         model: aiModel,
+        outputFormat,
         customInstructions,
       });
     }
@@ -79,7 +80,7 @@ export class WorklogEngine {
 
   private static async generateWithAiStatic(
     grouped: GroupedCommits[],
-    options: { apiKey?: string; model?: string; customInstructions?: string }
+    options: { apiKey?: string; model?: string; outputFormat: OutputFormat; customInstructions?: string }
   ): Promise<string> {
     try {
       const adapter = new ClaudeAdapter({
@@ -97,7 +98,7 @@ export class WorklogEngine {
       if (error instanceof Error) {
         console.warn(`AI generation failed: ${error.message}. Falling back to standard formatting.`);
       }
-      return formatWorklog(grouped, "text");
+      return formatWorklog(grouped, options.outputFormat);
     }
   }
 

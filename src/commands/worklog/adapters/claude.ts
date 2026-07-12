@@ -72,34 +72,42 @@ export class ClaudeAdapter {
   }
 
   private buildUserContent(commits: GroupedCommits[]): string {
-    const lines: string[] = ["Here are the commits to summarize:\n"];
-
-    for (const { repo, submodule, commits: repoCommits } of commits) {
-      const name = submodule ? `${repo}/${submodule}` : repo;
-      lines.push(`## ${name}`);
-      for (const commit of repoCommits) {
-        lines.push(`### [${commit.hash.slice(0, 7)}] ${commit.message}`);
-
-        if (commit.files && commit.files.length > 0) {
-          for (const file of commit.files) {
-            const added = file.added > 0 ? ` +${file.added}` : "";
-            const deleted = file.deleted > 0 ? ` -${file.deleted}` : "";
-            lines.push(`- ${file.path}${added}${deleted}`);
-          }
-        }
-
-        if (commit.diff) {
-          lines.push("```diff");
-          lines.push(commit.diff);
-          lines.push("```");
-        } else if (commit.diffTruncated) {
-          lines.push("(diff truncated, see file stats above)");
-        }
-
-        lines.push("");
-      }
-    }
-
-    return lines.join("\n");
+    return buildUserContentWithDiff(commits);
   }
+}
+
+/**
+ * Render grouped commits into the user message sent to the LLM.
+ * Pure function — exported for unit testing.
+ */
+export function buildUserContentWithDiff(commits: GroupedCommits[]): string {
+  const lines: string[] = ["Here are the commits to summarize:\n"];
+
+  for (const { repo, submodule, commits: repoCommits } of commits) {
+    const name = submodule ? `${repo}/${submodule}` : repo;
+    lines.push(`## ${name}`);
+    for (const commit of repoCommits) {
+      lines.push(`### [${commit.hash.slice(0, 7)}] ${commit.message}`);
+
+      if (commit.files && commit.files.length > 0) {
+        for (const file of commit.files) {
+          const added = file.added > 0 ? ` +${file.added}` : "";
+          const deleted = file.deleted > 0 ? ` -${file.deleted}` : "";
+          lines.push(`- ${file.path}${added}${deleted}`);
+        }
+      }
+
+      if (commit.diff) {
+        lines.push("```diff");
+        lines.push(commit.diff);
+        lines.push("```");
+      } else if (commit.diffTruncated) {
+        lines.push("(diff truncated, see file stats above)");
+      }
+
+      lines.push("");
+    }
+  }
+
+  return lines.join("\n");
 }

@@ -91,7 +91,7 @@ export const scanCommand = new Command()
     }
   });
 
-function resolveScanPath(options: { path?: string }, pathArg?: string): string {
+export function resolveScanPath(options: { path?: string }, pathArg?: string): string {
   if (pathArg && options.path && pathArg !== options.path) {
     console.error("✗ provide either [path] or --path, not both");
     process.exit(2);

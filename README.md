@@ -65,6 +65,24 @@ artisan worklog generate --ai --publish --tags "weekly,dev"
 
 **Storage:** `~/.artisan/worklog/commits.jsonl`
 
+#### scan — analyze a repo without the hook
+
+`scan` reads git log + diff directly from any local repository, so you can summarize
+work for projects where the post-commit hook isn't installed (e.g. other people's repos,
+historical checkouts, or teammates who don't use artisan yet).
+
+```bash
+cd ~/code/someone-else-repo
+artisan worklog scan                              # today's commits in plain text
+artisan worklog scan --since 2026-07-01 --format md
+artisan worklog scan --with-submodules            # also walk every submodule
+artisan worklog scan --no-diff                    # fastest: commit messages only
+artisan worklog scan --ai --instructions "Focus on performance and stability"
+```
+
+Per-commit diffs are capped at 8 KB (larger changes fall back to file-level `+/-` stats),
+with a 64 KB total budget across all commits to keep AI prompts under control.
+
 ### auth — check AI configuration (BYOK)
 
 ```bash

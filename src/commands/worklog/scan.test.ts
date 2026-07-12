@@ -2,9 +2,11 @@ import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { mkdir, rm } from "node:fs/promises";
-import { parseStatOutput, MAX_DIFF_BYTES, MAX_TOTAL_DIFF_BYTES } from "./core/git-scanner.ts";
+import { parseStatOutput, MAX_DIFF_BYTES, MAX_TOTAL_DIFF_BYTES, truncateDiff } from "./core/git-scanner.ts";
 import type { CommitEntry, FileStat } from "./types.ts";
 import { scanRepo } from "./core/git-scanner.ts";
+import { resolveScanPath } from "./scan.ts";
+import { buildUserContentWithDiff } from "./adapters/claude.ts";
 
 describe("parseStatOutput", () => {
   it("should parse basic stat output", () => {
@@ -43,6 +45,142 @@ describe("parseStatOutput", () => {
   it("should handle empty output", () => {
     const files = parseStatOutput("");
     expect(files).toHaveLength(0);
+  });
+});
+
+describe("truncateDiff", () => {
+  it("keeps diff under the budget", () => {
+    const result = truncateDiff("short diff", 100);
+    expect(result.diff).toBe("short diff");
+    expect(result.truncated).toBe(false);
+  });
+
+  it("truncates when diff exceeds budget", () => {
+    const big = "x".repeat(100);
+    const result = truncateDiff(big, 50);
+    expect(result.diff).toBeUndefined();
+    expect(result.truncated).toBe(true);
+  });
+
+  it("accepts diff exactly at the boundary", () => {
+    const exactly = "x".repeat(50);
+    const result = truncateDiff(exactly, 50);
+    expect(result.diff).toBe(exactly);
+    expect(result.truncated).toBe(false);
+  });
+
+  it("honors MAX_DIFF_BYTES constant from production config", () => {
+    const exactly = "x".repeat(MAX_DIFF_BYTES);
+    const result = truncateDiff(exactly, MAX_DIFF_BYTES);
+    expect(result.truncated).toBe(false);
+
+    const over = "x".repeat(MAX_DIFF_BYTES + 1);
+    const resultOver = truncateDiff(over, MAX_DIFF_BYTES);
+    expect(resultOver.truncated).toBe(true);
+  });
+});
+
+describe("buildUserContentWithDiff", () => {
+  const baseCommit = (overrides: Partial<CommitEntry> = {}): CommitEntry => ({
+    timestamp: "2026-07-12T10:00:00Z",
+    repo: "myrepo",
+    submodule: "",
+    message: "feat: add login",
+    hash: "abc1234def5678",
+    ...overrides,
+  });
+
+  it("renders diff block when entry.diff is present", () => {
+    const grouped = [
+      {
+        repo: "myrepo",
+        submodule: null,
+        commits: [baseCommit({ diff: "+export function login() {}" })],
+      },
+    ];
+    const out = buildUserContentWithDiff(grouped);
+    expect(out).toContain("### [abc1234] feat: add login");
+    expect(out).toContain("```diff");
+    expect(out).toContain("+export function login() {}");
+    expect(out).toContain("```");
+  });
+
+  it("renders truncation marker when entry.diffTruncated is set without diff", () => {
+    const grouped = [
+      {
+        repo: "myrepo",
+        submodule: null,
+        commits: [baseCommit({ diff: undefined, diffTruncated: true })],
+      },
+    ];
+    const out = buildUserContentWithDiff(grouped);
+    expect(out).toContain("(diff truncated, see file stats above)");
+    expect(out).not.toContain("```diff");
+  });
+
+  it("renders file stat lines when entry.files is set", () => {
+    const grouped = [
+      {
+        repo: "myrepo",
+        submodule: null,
+        commits: [
+          baseCommit({
+            files: [
+              { path: "src/a.ts", added: 5, deleted: 0 },
+              { path: "src/b.ts", added: 0, deleted: 3 },
+            ],
+          }),
+        ],
+      },
+    ];
+    const out = buildUserContentWithDiff(grouped);
+    expect(out).toContain("- src/a.ts +5");
+    expect(out).toContain("- src/b.ts -3");
+  });
+
+  it("renders only hash + message when entry has no diff/files/truncation", () => {
+    const grouped = [
+      {
+        repo: "myrepo",
+        submodule: null,
+        commits: [baseCommit()],
+      },
+    ];
+    const out = buildUserContentWithDiff(grouped);
+    expect(out).toContain("### [abc1234] feat: add login");
+    expect(out).not.toContain("```diff");
+    expect(out).not.toContain("(diff truncated");
+    expect(out).not.toContain("- src/");
+  });
+
+  it("names submodule entries as repo/submodule", () => {
+    const grouped = [
+      {
+        repo: "myrepo",
+        submodule: "packages/sub",
+        commits: [baseCommit()],
+      },
+    ];
+    const out = buildUserContentWithDiff(grouped);
+    expect(out).toContain("## myrepo/packages/sub");
+  });
+});
+
+describe("resolveScanPath", () => {
+  it("prefers positional arg when --path is absent", () => {
+    expect(resolveScanPath({}, "/some/dir")).toBe("/some/dir");
+  });
+
+  it("prefers --path when positional arg is absent", () => {
+    expect(resolveScanPath({ path: "/from/flag" }, undefined)).toBe("/from/flag");
+  });
+
+  it("falls back to cwd when neither is provided", () => {
+    expect(resolveScanPath({}, undefined)).toBe(process.cwd());
+  });
+
+  it("accepts both when they point to the same path", () => {
+    expect(resolveScanPath({ path: "/same" }, "/same")).toBe("/same");
   });
 });
 
@@ -232,5 +370,61 @@ describe("scanRepo integration", () => {
     expect(messages).toContain("commit 1");
     expect(messages).toContain("commit 2");
     expect(messages).toContain("commit 3");
+  });
+
+  it("early-stops diff capture once cumulative bytes exceed MAX_TOTAL_DIFF_BYTES", async () => {
+    const initProc = Bun.spawn(["git", "init"], {
+      cwd: testRepo,
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    await initProc.exited;
+
+    // Each file's diff is ~6 KB so it fits within MAX_DIFF_BYTES (8 KB) and is
+    // kept as a full diff. After ~11 commits cumulative bytes exceed 64 KB,
+    // triggering the early-stop: the 12th commit's diff must not be captured.
+    const blob = "x".repeat(6000);
+    for (let i = 1; i <= 12; i++) {
+      await Bun.write(join(testRepo, `small${i}.txt`), blob);
+      const addProc = Bun.spawn(["git", "add", `small${i}.txt`], {
+        cwd: testRepo,
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      await addProc.exited;
+
+      const commitProc = Bun.spawn(
+        ["git", "-c", "user.name=Test", "-c", "user.email=test@test.com", "commit", "-m", `small commit ${i}`],
+        { cwd: testRepo, stdout: "pipe", stderr: "pipe" }
+      );
+      await commitProc.exited;
+    }
+
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+
+    const commits = await scanRepo({
+      path: testRepo,
+      dateRange: { start: today, end: tomorrow },
+      includeDiff: true,
+    });
+
+    expect(commits).toHaveLength(12);
+
+    const withDiff = commits.filter((c) => c.diff !== undefined);
+    const messageOnly = commits.filter(
+      (c) => c.diff === undefined && c.files === undefined && !c.diffTruncated
+    );
+
+    // Early-stop kicked in for at least the last commit.
+    expect(withDiff.length).toBeLessThan(12);
+    expect(messageOnly.length).toBeGreaterThan(0);
+    // The last commit must be message-only (no diff, no stat fallback).
+    const last = commits[commits.length - 1]!;
+    expect(last.diff).toBeUndefined();
+    expect(last.files).toBeUndefined();
+    expect(last.diffTruncated).toBeUndefined();
   });
 });

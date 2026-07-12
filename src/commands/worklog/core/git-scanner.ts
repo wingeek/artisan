@@ -131,10 +131,21 @@ async function getGitLogEntries(path: string, dateRange: DateRange): Promise<[st
   }
 }
 
-interface DiffResult {
+export interface DiffResult {
   diff?: string;
   files?: FileStat[];
   truncated: boolean;
+}
+
+/**
+ * Decide whether a raw diff patch fits within the per-commit budget.
+ * Pure function — callers handle the actual stat fallback.
+ */
+export function truncateDiff(diff: string, maxSize: number): { diff?: string; truncated: boolean } {
+  if (diff.length <= maxSize) {
+    return { diff, truncated: false };
+  }
+  return { truncated: true };
 }
 
 async function captureDiff(path: string, hash: string, maxSize: number): Promise<DiffResult> {
@@ -153,8 +164,9 @@ async function captureDiff(path: string, hash: string, maxSize: number): Promise
       return { truncated: false };
     }
 
-    if (out.length <= maxSize) {
-      return { diff: out, truncated: false };
+    const decision = truncateDiff(out, maxSize);
+    if (!decision.truncated) {
+      return { diff: decision.diff, truncated: false };
     }
 
     const statResult = await captureStat(path, hash);
