@@ -7,6 +7,7 @@ export interface CommitEntry {
   diff?: string;
   files?: FileStat[];
   diffTruncated?: boolean;
+  author?: string;
 }
 
 export interface FileStat {

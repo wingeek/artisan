@@ -77,6 +77,7 @@ artisan worklog scan                              # today's commits in plain tex
 artisan worklog scan --since 2026-07-01 --format md
 artisan worklog scan --with-submodules            # also walk every submodule
 artisan worklog scan --no-diff                    # fastest: commit messages only
+artisan worklog scan --author Alice               # filter to one contributor
 artisan worklog scan --ai --instructions "Focus on performance and stability"
 ```
 

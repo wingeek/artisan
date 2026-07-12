@@ -11,10 +11,11 @@ export interface ScanOptions {
   includeDiff: boolean;
   repo?: string;
   submodule?: string;
+  author?: string;
 }
 
 export async function scanRepo(opts: ScanOptions): Promise<CommitEntry[]> {
-  const { path, dateRange, includeDiff, repo, submodule } = opts;
+  const { path, dateRange, includeDiff, repo, submodule, author } = opts;
 
   const gitDir = await resolveGitDir(path);
   if (!gitDir) {
@@ -24,7 +25,7 @@ export async function scanRepo(opts: ScanOptions): Promise<CommitEntry[]> {
   const repoName = await getRepoName(path);
   const finalRepo = repo ?? repoName;
 
-  const logEntries = await getGitLogEntries(path, dateRange);
+  const logEntries = await getGitLogEntries(path, dateRange, author);
 
   if (logEntries.length === 0) {
     return [];
@@ -33,13 +34,14 @@ export async function scanRepo(opts: ScanOptions): Promise<CommitEntry[]> {
   const commits: CommitEntry[] = [];
   let totalDiffBytes = 0;
 
-  for (const [hash, timestamp, message] of logEntries) {
+  for (const [hash, timestamp, authorName, message] of logEntries) {
     const entry: CommitEntry = {
       timestamp,
       repo: finalRepo,
       submodule: submodule ?? "",
       message,
       hash,
+      author: authorName,
     };
 
     if (includeDiff && totalDiffBytes < MAX_TOTAL_DIFF_BYTES) {
@@ -83,25 +85,31 @@ async function getRepoName(path: string): Promise<string> {
   }
 }
 
-async function getGitLogEntries(path: string, dateRange: DateRange): Promise<[string, string, string][]> {
+async function getGitLogEntries(
+  path: string,
+  dateRange: DateRange,
+  author?: string,
+): Promise<[string, string, string, string][]> {
   const since = dateRange.start.toISOString();
   const until = dateRange.end.toISOString();
 
+  const args = [
+    "git",
+    "log",
+    `--since=${since}`,
+    `--until=${until}`,
+    "--pretty=format:%H|%aI|%an|%s",
+  ];
+  if (author) {
+    args.push(`--author=${author}`);
+  }
+
   try {
-    const proc = Bun.spawn(
-      [
-        "git",
-        "log",
-        `--since=${since}`,
-        `--until=${until}`,
-        "--pretty=format:%H|%aI|%s",
-      ],
-      {
-        cwd: path,
-        stdout: "pipe",
-        stderr: "pipe",
-      },
-    );
+    const proc = Bun.spawn(args, {
+      cwd: path,
+      stdout: "pipe",
+      stderr: "pipe",
+    });
 
     const out = await new Response(proc.stdout).text();
     const code = await proc.exited;
@@ -112,13 +120,16 @@ async function getGitLogEntries(path: string, dateRange: DateRange): Promise<[st
     }
 
     const lines = out.split("\n").filter(Boolean);
-    const entries: [string, string, string][] = [];
+    const entries: [string, string, string, string][] = [];
 
     for (const line of lines) {
       const parts = line.split("|");
-      if (parts.length >= 3) {
-        const [hash, timestamp, ...messageParts] = parts;
-        entries.push([hash, timestamp, messageParts.join("|")]);
+      if (parts.length >= 4) {
+        const hash = parts[0]!;
+        const timestamp = parts[1]!;
+        const authorName = parts[2]!;
+        const message = parts.slice(3).join("|");
+        entries.push([hash, timestamp, authorName, message]);
       }
     }
 

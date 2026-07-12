@@ -164,6 +164,30 @@ describe("buildUserContentWithDiff", () => {
     const out = buildUserContentWithDiff(grouped);
     expect(out).toContain("## myrepo/packages/sub");
   });
+
+  it("includes author in commit heading when entry.author is set", () => {
+    const grouped = [
+      {
+        repo: "myrepo",
+        submodule: null,
+        commits: [baseCommit({ author: "Alice" })],
+      },
+    ];
+    const out = buildUserContentWithDiff(grouped);
+    expect(out).toContain("### [abc1234] feat: add login (by Alice)");
+  });
+
+  it("omits author marker when entry.author is absent", () => {
+    const grouped = [
+      {
+        repo: "myrepo",
+        submodule: null,
+        commits: [baseCommit()],
+      },
+    ];
+    const out = buildUserContentWithDiff(grouped);
+    expect(out).not.toContain("(by ");
+  });
 });
 
 describe("resolveScanPath", () => {
@@ -426,5 +450,56 @@ describe("scanRepo integration", () => {
     expect(last.diff).toBeUndefined();
     expect(last.files).toBeUndefined();
     expect(last.diffTruncated).toBeUndefined();
+  });
+
+  it("filters by author and exposes author on entries", async () => {
+    const initProc = Bun.spawn(["git", "init"], {
+      cwd: testRepo,
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    await initProc.exited;
+
+    const commitAs = async (name: string, email: string, file: string, message: string) => {
+      await Bun.write(join(testRepo, file), `${file}-content`);
+      const addProc = Bun.spawn(["git", "add", file], {
+        cwd: testRepo,
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      await addProc.exited;
+      const commitProc = Bun.spawn(
+        ["git", "-c", `user.name=${name}`, "-c", `user.email=${email}`, "commit", "-m", message],
+        { cwd: testRepo, stdout: "pipe", stderr: "pipe" }
+      );
+      await commitProc.exited;
+    };
+
+    await commitAs("Alice", "alice@example.com", "a.txt", "alice's commit");
+    await commitAs("Bob", "bob@example.com", "b.txt", "bob's commit");
+    await commitAs("Alice", "alice@example.com", "a2.txt", "alice's second commit");
+
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+
+    const allCommits = await scanRepo({
+      path: testRepo,
+      dateRange: { start: today, end: tomorrow },
+      includeDiff: false,
+    });
+    expect(allCommits).toHaveLength(3);
+    expect(allCommits.every((c) => typeof c.author === "string")).toBe(true);
+
+    const aliceOnly = await scanRepo({
+      path: testRepo,
+      dateRange: { start: today, end: tomorrow },
+      includeDiff: false,
+      author: "Alice",
+    });
+    expect(aliceOnly).toHaveLength(2);
+    expect(aliceOnly.every((c) => c.author === "Alice")).toBe(true);
+    expect(aliceOnly.map((c) => c.message).sort()).toEqual(["alice's commit", "alice's second commit"]);
   });
 });

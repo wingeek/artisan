@@ -16,6 +16,7 @@ export const scanCommand = new Command()
   .option("--until <date:string>", "End date range (YYYY-MM-DD)")
   .option("--with-submodules", "Also scan all submodules")
   .option("--no-diff", "Skip diff collection, only commit messages")
+  .option("--author <pattern:string>", "Filter commits by author name (substring/regex)")
   .option("--format <format:string>", "Output format (text, md, json)", { default: "text" })
   .option("--ai", "Enable AI-powered work log generation using Claude")
   .option("--ai-model <model:string>", "Model to use (overrides ANTHROPIC_MODEL env; default: claude-sonnet-4-6)")
@@ -38,6 +39,7 @@ export const scanCommand = new Command()
         path: scanPath,
         dateRange,
         includeDiff,
+        author: options.author,
       });
       allCommits.push(...mainCommits);
 
@@ -50,6 +52,7 @@ export const scanCommand = new Command()
             dateRange,
             includeDiff,
             submodule: sub,
+            author: options.author,
           });
           allCommits.push(...subCommits);
         }

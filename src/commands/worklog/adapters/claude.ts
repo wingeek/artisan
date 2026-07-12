@@ -87,7 +87,8 @@ export function buildUserContentWithDiff(commits: GroupedCommits[]): string {
     const name = submodule ? `${repo}/${submodule}` : repo;
     lines.push(`## ${name}`);
     for (const commit of repoCommits) {
-      lines.push(`### [${commit.hash.slice(0, 7)}] ${commit.message}`);
+      const authorSuffix = commit.author ? ` (by ${commit.author})` : "";
+      lines.push(`### [${commit.hash.slice(0, 7)}] ${commit.message}${authorSuffix}`);
 
       if (commit.files && commit.files.length > 0) {
         for (const file of commit.files) {

@@ -76,6 +76,7 @@ artisan worklog scan                              # 今天的提交,纯文本
 artisan worklog scan --since 2026-07-01 --format md
 artisan worklog scan --with-submodules            # 同时遍历所有 submodule
 artisan worklog scan --no-diff                    # 最快:只取 commit message
+artisan worklog scan --author Alice               # 只看某位提交者的工作
 artisan worklog scan --ai --instructions "聚焦性能与稳定性改进"
 ```
 
